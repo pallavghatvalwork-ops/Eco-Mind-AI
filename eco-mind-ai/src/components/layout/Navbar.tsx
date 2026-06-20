@@ -8,12 +8,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Search, Leaf, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { MOCK_NOTIFICATIONS } from '@/lib/mock-data';
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, markAllNotificationsAsRead } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
-  const unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.read).length;
+  const notifications = user?.notifications || [];
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <header className="sticky top-0 z-30 glass-surface border-b border-white/5">
@@ -75,28 +75,56 @@ export default function Navbar() {
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 top-12 w-80 glass-card-static p-0 overflow-hidden"
                 >
-                  <div className="flex items-center justify-between p-4 border-b border-white/5">
-                    <h3 className="text-sm font-semibold text-white">Notifications</h3>
-                    <button
-                      onClick={() => setShowNotifications(false)}
-                      className="p-1 rounded-lg hover:bg-white/5"
-                      aria-label="Close notifications"
-                    >
-                      <X className="w-4 h-4 text-surface-400" />
-                    </button>
+                  <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-eco-500 text-[10px] font-bold text-white">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllNotificationsAsRead}
+                          className="text-[10px] text-eco-400 hover:text-white font-semibold transition-colors"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowNotifications(false)}
+                        className="p-1 rounded-lg hover:bg-white/5"
+                        aria-label="Close notifications"
+                      >
+                        <X className="w-4 h-4 text-surface-400" />
+                      </button>
+                    </div>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {MOCK_NOTIFICATIONS.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className={`p-4 border-b border-white/5 hover:bg-white/3 transition-colors ${
-                          !notif.read ? 'bg-eco-500/5' : ''
-                        }`}
-                      >
-                        <p className="text-sm font-medium text-white">{notif.title}</p>
-                        <p className="text-xs text-surface-400 mt-1 leading-relaxed">{notif.message}</p>
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-surface-500">
+                        No notifications yet.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          className={`p-4 border-b border-white/5 hover:bg-white/3 transition-colors ${
+                            !notif.read ? 'bg-eco-500/5' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-white">{notif.title}</p>
+                            {!notif.read && (
+                              <span className="w-2 h-2 rounded-full bg-eco-400 shrink-0 ml-2" />
+                            )}
+                          </div>
+                          <p className="text-xs text-surface-400 mt-1 leading-relaxed">{notif.message}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </motion.div>
               )}

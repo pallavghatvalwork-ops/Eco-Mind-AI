@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Check, X, Sparkles, Zap, Eye } from 'lucide-react';
 import { formatCO2 } from '@/lib/utils/formatters';
 import { callGemini } from '@/lib/utils/gemini';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BillResult {
   provider: string;
@@ -19,10 +20,12 @@ interface BillResult {
 }
 
 export default function BillsPage() {
+  const { user, updateUser } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<BillResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fileToBase64 = (f: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -50,24 +53,25 @@ export default function BillsPage() {
   const handleAnalyze = async () => {
     if (!file) return;
     setIsAnalyzing(true);
+    setError(null);
+    setResult(null);
 
     try {
       const base64Data = await fileToBase64(file);
       const data = await callGemini('bill', { fileData: base64Data, mimeType: file.type });
       if (data && typeof data === 'object') {
         setResult(data);
+        
+        // Increment bills scanned count in Firestore
+        updateUser({
+          billScansCount: (user?.billScansCount || 0) + 1,
+        });
       } else {
         throw new Error('Invalid response from AI');
       }
     } catch (err) {
-      console.warn('Real Gemini Vision bill analysis failed. Falling back to mock:', err);
-      setResult({
-        provider: 'MSEDCL (Maharashtra)',
-        unitsConsumed: 285,
-        billingAmount: 2450,
-        billingPeriod: 'May 2025',
-        carbonImpact: 285 * 0.82,
-      });
+      console.warn('Real Gemini Vision bill analysis failed:', err);
+      setError('AI analysis is temporarily unavailable. Please try again later.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -141,6 +145,21 @@ export default function BillsPage() {
           </div>
         )}
       </div>
+
+      {/* Error message */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="text-2xl">⚠️</div>
+            <p className="text-sm font-semibold text-rose-400">{error}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Analysis Result */}
       <AnimatePresence>

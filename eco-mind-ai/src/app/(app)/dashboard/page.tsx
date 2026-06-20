@@ -308,6 +308,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {errorRecs && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium">
+              ⚠️ AI features are temporarily unavailable. Using local recommendations.
+            </div>
+          )}
+
           <div className="space-y-3">
             {recommendations.map((rec) => (
               <div key={rec.id} className="p-4 rounded-xl bg-white/3 border border-white/5 hover:bg-white/5 transition-colors">

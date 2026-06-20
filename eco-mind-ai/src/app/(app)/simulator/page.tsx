@@ -26,7 +26,27 @@ const CATEGORY_COLORS = {
 };
 
 export default function SimulatorPage() {
-  const { user } = useAuth();
+  const { user, updateUser, addNotification } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const saveSimulation = () => {
+    if (!user) return;
+    setIsSaving(true);
+    const currentCount = user.simulatorScenariosCount || 0;
+    updateUser({
+      simulatorScenariosCount: currentCount + 1,
+      ecoPoints: (user.ecoPoints || 0) + 15,
+    });
+    addNotification(
+      '⭐ Eco Points Earned',
+      '+15 points for saving a simulation.',
+      'tip'
+    );
+    setSaveSuccess(true);
+    setIsSaving(false);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
   
   // Set up local state for preferences, initialized with user defaults or global defaults
   const [transportModes, setTransportModes] = useState<TransportMode[]>(['car']);
@@ -198,13 +218,22 @@ export default function SimulatorPage() {
             Simulate how changes to your daily lifestyle influence your personal carbon footprint.
           </p>
         </div>
-        <button
-          onClick={resetToBaseline}
-          className="flex items-center gap-1.5 self-start sm:self-center px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 text-sm transition-all"
-        >
-          <RefreshCw className="w-4 h-4 text-surface-400" />
-          Reset to Baseline
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={saveSimulation}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 px-4 py-2 bg-eco-600 hover:bg-eco-500 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+          >
+            {saveSuccess ? 'Saved ✓' : isSaving ? 'Saving...' : 'Save Simulation'}
+          </button>
+          <button
+            onClick={resetToBaseline}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 text-sm transition-all"
+          >
+            <RefreshCw className="w-4 h-4 text-surface-400" />
+            Reset to Baseline
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

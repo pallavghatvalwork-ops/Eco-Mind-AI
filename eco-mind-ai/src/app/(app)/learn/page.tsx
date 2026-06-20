@@ -12,6 +12,25 @@ import {
 } from 'lucide-react';
 import { formatNumber } from '@/lib/utils/formatters';
 import { callGemini } from '@/lib/utils/gemini';
+import { useAuth } from '@/contexts/AuthContext';
+
+const DEFAULT_LEARN_RECOMMENDATIONS = [
+  {
+    topic: 'Transitioning to Solar Power in India',
+    reason: 'Learn about state incentives, grid-metering, and reducing AC emissions.',
+    pointsReward: 25,
+  },
+  {
+    topic: 'Maximizing Public Transit Commutes',
+    reason: 'Discover carbon-saving ratios of shifting from car travel to metros or buses.',
+    pointsReward: 15,
+  },
+  {
+    topic: 'Methane and Dairy footprint',
+    reason: 'A structured review of diet-linked agricultural emissions.',
+    pointsReward: 20,
+  },
+];
 
 const ARTICLES = [
   {
@@ -89,6 +108,7 @@ const QUIZ_QUESTIONS = [
 ];
 
 export default function LearnPage() {
+  const { user, updateUser, addNotification } = useAuth();
   const [activeCategory, setActiveCategory] = useState<'all' | 'Energy' | 'Food' | 'Transport' | 'Waste'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -97,20 +117,34 @@ export default function LearnPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [scoreEarned, setScoreEarned] = useState(0);
+  const [quizCompleted, setQuizCompleted] = useState(false);
 
   // Recommendations state
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [usingLocalRecs, setUsingLocalRecs] = useState(false);
+
+  // Sync completion status from user profile
+  useEffect(() => {
+    if (user?.quizCompleted) {
+      setQuizCompleted(true);
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
       try {
         const readArticles = ['Energy', 'Transport'];
         const data = await callGemini('learn', { readArticles });
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setRecommendations(data);
+          setUsingLocalRecs(false);
+        } else {
+          throw new Error('Empty recommendations');
         }
       } catch (err) {
-        console.warn('Failed to load learning recommendations:', err);
+        console.warn('Failed to load learning recommendations, falling back to static:', err);
+        setRecommendations(DEFAULT_LEARN_RECOMMENDATIONS);
+        setUsingLocalRecs(true);
       }
     };
     fetchRecommendations();
@@ -124,12 +158,12 @@ export default function LearnPage() {
   });
 
   const handleAnswerClick = (idx: number) => {
-    if (quizSubmitted) return;
+    if (quizSubmitted || quizCompleted) return;
     setSelectedAnswer(idx);
   };
 
   const handleQuizSubmit = () => {
-    if (selectedAnswer === null || quizSubmitted) return;
+    if (selectedAnswer === null || quizSubmitted || quizCompleted) return;
     
     setQuizSubmitted(true);
     if (selectedAnswer === QUIZ_QUESTIONS[currentQuizIdx].correctIdx) {
@@ -138,9 +172,29 @@ export default function LearnPage() {
   };
 
   const handleNextQuiz = () => {
-    setSelectedAnswer(null);
-    setQuizSubmitted(false);
-    setCurrentQuizIdx((prev) => (prev + 1) % QUIZ_QUESTIONS.length);
+    if (currentQuizIdx === QUIZ_QUESTIONS.length - 1) {
+      setQuizCompleted(true);
+      if (user && !user.quizCompleted) {
+        updateUser({
+          ecoPoints: (user.ecoPoints || 0) + scoreEarned,
+          quizCompleted: true,
+        });
+        addNotification(
+          '📚 Learning Hub Complete',
+          `You earned +${scoreEarned} Eco Points.`,
+          'quiz'
+        );
+        addNotification(
+          '⭐ Eco Points Earned',
+          `+${scoreEarned} points for completing a quiz.`,
+          'tip'
+        );
+      }
+    } else {
+      setSelectedAnswer(null);
+      setQuizSubmitted(false);
+      setCurrentQuizIdx((prev) => prev + 1);
+    }
   };
 
   return (
@@ -260,83 +314,112 @@ export default function LearnPage() {
                 <BookOpen className="w-4 h-4 text-eco-400" />
                 <h2 className="text-sm font-bold text-white">Daily Eco Quiz</h2>
               </div>
+            {!quizCompleted && (
               <span className="text-[10px] text-surface-500">Q {currentQuizIdx + 1} of {QUIZ_QUESTIONS.length}</span>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs text-white font-semibold leading-relaxed">
-                {QUIZ_QUESTIONS[currentQuizIdx].question}
-              </p>
-
-              <div className="space-y-2">
-                {QUIZ_QUESTIONS[currentQuizIdx].options.map((opt, idx) => {
-                  const isSelected = selectedAnswer === idx;
-                  const isCorrect = idx === QUIZ_QUESTIONS[currentQuizIdx].correctIdx;
-                  
-                  let optionClass = 'bg-white/3 border-white/5 text-surface-400 hover:bg-white/5';
-                  if (isSelected && !quizSubmitted) {
-                    optionClass = 'bg-eco-500/10 border-eco-500/50 text-white';
-                  } else if (quizSubmitted) {
-                    if (isCorrect) {
-                      optionClass = 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 font-medium';
-                    } else if (isSelected) {
-                      optionClass = 'bg-rose-500/10 border-rose-500/50 text-rose-400';
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => handleAnswerClick(idx)}
-                      disabled={quizSubmitted}
-                      className={`w-full text-left p-3.5 rounded-xl border text-xs leading-normal transition-all flex items-center justify-between ${optionClass}`}
-                    >
-                      <span>{opt}</span>
-                      {quizSubmitted && isCorrect && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-2" />}
-                      {quizSubmitted && isSelected && !isCorrect && <X className="w-3.5 h-3.5 text-rose-400 shrink-0 ml-2" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Explanation & Submission Panel */}
-            {quizSubmitted && (
-              <div className="p-4 rounded-xl bg-white/3 border border-white/5 text-[11px] text-surface-400 leading-relaxed">
-                <span className="font-bold text-white block mb-1">
-                  {selectedAnswer === QUIZ_QUESTIONS[currentQuizIdx].correctIdx ? '🎉 Correct! (+10 points)' : '❌ Incorrect'}
-                </span>
-                {QUIZ_QUESTIONS[currentQuizIdx].explanation}
-              </div>
             )}
+          </div>
 
-            <div className="flex gap-2 pt-2">
-              {!quizSubmitted ? (
-                <button
-                  onClick={handleQuizSubmit}
-                  disabled={selectedAnswer === null}
-                  className="w-full py-2 bg-eco-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl hover:shadow-lg transition-all"
-                >
-                  Submit Answer
-                </button>
-              ) : (
-                <button
-                  onClick={handleNextQuiz}
-                  className="w-full py-2 bg-white/5 hover:bg-white/10 text-white font-semibold text-xs rounded-xl transition-all"
-                >
-                  Next Question
-                </button>
-              )}
+          {quizCompleted ? (
+            <div className="text-center py-6 space-y-3">
+              <div className="text-4xl">🏆</div>
+              <h3 className="text-sm font-bold text-white">Quiz Completed!</h3>
+              <p className="text-xs text-surface-400 leading-relaxed">
+                Great job! You have completed today's quiz and learned more about carbon accounting.
+              </p>
+              <div className="p-4 rounded-xl bg-eco-500/10 border border-eco-500/20 text-xs text-eco-400 font-semibold max-w-xs mx-auto">
+                Points Earned: +{scoreEarned} Eco Points
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <p className="text-xs text-white font-semibold leading-relaxed">
+                  {QUIZ_QUESTIONS[currentQuizIdx].question}
+                </p>
+
+                <div className="space-y-2">
+                  {QUIZ_QUESTIONS[currentQuizIdx].options.map((opt, idx) => {
+                    const isSelected = selectedAnswer === idx;
+                    const isCorrect = idx === QUIZ_QUESTIONS[currentQuizIdx].correctIdx;
+                    
+                    let optionClass = 'bg-white/3 border-white/5 text-surface-400 hover:bg-white/5';
+                    if (isSelected && !quizSubmitted) {
+                      optionClass = 'bg-eco-500/10 border-eco-500/50 text-white';
+                    } else if (quizSubmitted) {
+                      if (isCorrect) {
+                        optionClass = 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 font-medium';
+                      } else if (isSelected) {
+                        optionClass = 'bg-rose-500/10 border-rose-500/50 text-rose-400';
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleAnswerClick(idx)}
+                        disabled={quizSubmitted}
+                        className={`w-full text-left p-3.5 rounded-xl border text-xs leading-normal transition-all flex items-center justify-between ${optionClass}`}
+                      >
+                        <span>{opt}</span>
+                        {quizSubmitted && isCorrect && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-2" />}
+                        {quizSubmitted && isSelected && !isCorrect && <X className="w-3.5 h-3.5 text-rose-400 shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Explanation & Submission Panel */}
+              {quizSubmitted && (
+                <div className="p-4 rounded-xl bg-white/3 border border-white/5 text-[11px] text-surface-400 leading-relaxed">
+                  <span className="font-bold text-white block mb-1">
+                    {selectedAnswer === QUIZ_QUESTIONS[currentQuizIdx].correctIdx ? '🎉 Correct! (+10 points)' : '❌ Incorrect'}
+                  </span>
+                  {QUIZ_QUESTIONS[currentQuizIdx].explanation}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                {!quizSubmitted ? (
+                  <button
+                    onClick={handleQuizSubmit}
+                    disabled={selectedAnswer === null}
+                    className="w-full py-2 bg-eco-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl hover:shadow-lg transition-all"
+                  >
+                    Submit Answer
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleNextQuiz}
+                    className="w-full py-2 bg-white/5 hover:bg-white/10 text-white font-semibold text-xs rounded-xl transition-all"
+                  >
+                    {currentQuizIdx === QUIZ_QUESTIONS.length - 1 ? 'Complete Quiz' : 'Next Question'}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
           </div>
 
           {/* AI Reading Recommendations */}
           {recommendations.length > 0 && (
             <div className="glass-card-static p-6 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-white/5">
-                <Sparkles className="w-4 h-4 text-eco-400" />
-                <h3 className="text-sm font-bold text-white">AI Reading recommendations</h3>
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-eco-400" />
+                  <h3 className="text-sm font-bold text-white">AI Reading recommendations</h3>
+                </div>
+                {usingLocalRecs && (
+                  <span className="text-[9px] text-amber-400 font-semibold px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full shrink-0">
+                    Offline
+                  </span>
+                )}
               </div>
+              {usingLocalRecs && (
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 rounded-lg">
+                  ⚠️ AI features are temporarily unavailable. Using local recommendations.
+                </div>
+              )}
               <div className="space-y-3">
                 {recommendations.map((rec, i) => (
                   <div key={i} className="p-3.5 rounded-xl bg-white/3 border border-white/5 space-y-1">

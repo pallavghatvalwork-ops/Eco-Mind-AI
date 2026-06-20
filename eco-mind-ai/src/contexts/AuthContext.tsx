@@ -17,6 +17,8 @@ interface AuthContextType {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  addNotification: (title: string, message: string, type: 'streak' | 'badge' | 'challenge' | 'quiz' | 'tip', customId?: string) => void;
+  markAllNotificationsAsRead: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +42,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const addNotification = useCallback((
+    title: string,
+    message: string,
+    type: 'streak' | 'badge' | 'challenge' | 'quiz' | 'tip',
+    customId?: string
+  ) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const notifications = prev.notifications || [];
+      
+      if (customId && notifications.some(n => n.id === customId)) {
+        return prev;
+      }
+
+      const newNotif = {
+        id: customId || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title,
+        message,
+        type,
+        read: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedNotifications = [newNotif, ...notifications];
+      const updates = { notifications: updatedNotifications };
+
+      const userRef = doc(db, 'users', prev.uid);
+      updateDoc(userRef, updates).catch((e) => {
+        console.error('Failed to update notifications in Firestore:', e);
+      });
+
+      return { ...prev, notifications: updatedNotifications };
+    });
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    setUser(prev => {
+      if (!prev) return null;
+      const notifications = prev.notifications || [];
+      
+      const hasUnread = notifications.some(n => !n.read);
+      if (!hasUnread) return prev;
+
+      const updatedNotifications = notifications.map(n => ({ ...n, read: true }));
+      const updates = { notifications: updatedNotifications };
+
+      const userRef = doc(db, 'users', prev.uid);
+      updateDoc(userRef, updates).catch((e) => {
+        console.error('Failed to mark notifications as read in Firestore:', e);
+      });
+
+      return { ...prev, notifications: updatedNotifications };
+    });
+  }, []);
+
   // Listen to Firebase Auth state updates
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -53,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(userSnap.data() as User);
           } else {
             // Register new user profile in Firestore
-            const newUser: User = {
+             const newUser: User = {
               uid: firebaseUser.uid,
               displayName: firebaseUser.displayName || 'Green Citizen',
               email: firebaseUser.email || '',
@@ -66,6 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               lastActiveDate: new Date().toISOString(),
               createdAt: new Date().toISOString(),
               onboardingComplete: false,
+              journalEntriesCount: 0,
+              completedChallengesCount: 0,
+              billScansCount: 0,
+              receiptScansCount: 0,
+              simulatorScenariosCount: 0,
+              communityChallengesCount: 0,
+              quizCompleted: false,
+              joinedChallenges: [],
+              notifications: [],
             };
             await setDoc(userRef, newUser);
             setUser(newUser);
@@ -86,6 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             lastActiveDate: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             onboardingComplete: false,
+            journalEntriesCount: 0,
+            completedChallengesCount: 0,
+            billScansCount: 0,
+            receiptScansCount: 0,
+            simulatorScenariosCount: 0,
+            communityChallengesCount: 0,
+            quizCompleted: false,
+            joinedChallenges: [],
+            notifications: [],
           });
         }
       } else {
@@ -96,6 +171,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // Automatically detect badge unlocks and rotate daily tip
+  useEffect(() => {
+    if (!user) return;
+
+    const stats = {
+      streakDays: user.streakDays || 0,
+      ecoPoints: user.ecoPoints || 0,
+      carbonScore: user.carbonScore || 0,
+      onboardingComplete: user.onboardingComplete || false,
+      journalEntriesCount: user.journalEntriesCount || 0,
+      completedChallengesCount: user.completedChallengesCount || 0,
+      billScansCount: user.billScansCount || 0,
+      receiptScansCount: user.receiptScansCount || 0,
+      simulatorScenariosCount: user.simulatorScenariosCount || 0,
+      communityChallengesCount: user.communityChallengesCount || 0,
+    };
+
+    const newNotifications: any[] = [];
+    const existingNotifications = user.notifications || [];
+
+    // Predefined Badge evaluation (BADGES criteria)
+    const BADGE_CHECKLIST = [
+      { id: 'green-beginner', name: 'Green Beginner', rule: stats.onboardingComplete },
+      { id: 'eco-warrior', name: 'Eco Warrior', rule: stats.carbonScore >= 70 },
+      { id: 'climate-hero', name: 'Climate Hero', rule: stats.carbonScore >= 90 },
+      { id: 'planet-guardian', name: 'Planet Guardian', rule: stats.carbonScore >= 90 && stats.streakDays >= 30 },
+      { id: 'streak-7', name: '7 Day Green Streak', rule: stats.streakDays >= 7 },
+      { id: 'streak-30', name: '30 Day Eco Challenge', rule: stats.streakDays >= 30 },
+      { id: 'carbon-master', name: 'Carbon Reduction Master', rule: stats.simulatorScenariosCount >= 1 && stats.carbonScore >= 80 },
+      { id: 'journal-keeper', name: 'Journal Keeper', rule: stats.journalEntriesCount >= 10 },
+      { id: 'community-champion', name: 'Community Champion', rule: stats.communityChallengesCount >= 3 },
+      { id: 'bill-detective', name: 'Bill Detective', rule: stats.billScansCount >= 5 },
+      { id: 'receipt-scanner', name: 'Receipt Scanner Pro', rule: stats.receiptScansCount >= 10 },
+      { id: 'simulator-pro', name: 'Simulator Pro', rule: stats.simulatorScenariosCount >= 5 },
+    ];
+
+    BADGE_CHECKLIST.forEach(badge => {
+      if (badge.rule) {
+        const notifId = `badge-unlock-${badge.id}`;
+        if (!existingNotifications.some(n => n.id === notifId)) {
+          newNotifications.push({
+            id: notifId,
+            type: 'badge',
+            title: '🏆 Badge Unlocked',
+            message: `${badge.name} earned!`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+    });
+
+    // Rotate Daily Eco Tip if no tip is generated for today
+    const todayStr = new Date().toDateString();
+    const tipNotifId = `daily-tip-${todayStr.replace(/\s+/g, '-')}`;
+    if (!existingNotifications.some(n => n.id === tipNotifId)) {
+      const ECO_TIPS = [
+        'Unplug devices when not in use. Standby power can account for 5-10% of household electricity usage.',
+        'Wash clothes in cold water to reduce laundry energy consumption by up to 75%.',
+        'Switching diet to vegetarian or vegan cuts food carbon footprint by up to 50% immediately.',
+        'Consolidate online deliveries into single shipments to reduce courier transportation footprint.',
+        'Composting kitchen waste prevents anaerobic methane release in landfills.',
+        'Using public transit (bus/metro) twice a week instead of driving reduces transit emissions by 60%.',
+      ];
+      const tipIndex = new Date().getDate() % ECO_TIPS.length;
+      const selectedTip = ECO_TIPS[tipIndex];
+      newNotifications.push({
+        id: tipNotifId,
+        type: 'tip',
+        title: '💡 Daily Eco Tip',
+        message: selectedTip,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    if (newNotifications.length > 0) {
+      const updatedNotifications = [...newNotifications, ...existingNotifications];
+      setUser(prev => {
+        if (!prev) return null;
+        
+        const userRef = doc(db, 'users', prev.uid);
+        updateDoc(userRef, { notifications: updatedNotifications }).catch(e => {
+          console.error('Failed to auto-add notifications:', e);
+        });
+
+        return { ...prev, notifications: updatedNotifications };
+      });
+    }
+  }, [
+    user?.uid,
+    user?.streakDays,
+    user?.carbonScore,
+    user?.onboardingComplete,
+    user?.journalEntriesCount,
+    user?.completedChallengesCount,
+    user?.billScansCount,
+    user?.receiptScansCount,
+    user?.simulatorScenariosCount,
+    user?.communityChallengesCount,
+    user?.notifications?.length
+  ]);
 
   const signIn = useCallback(async () => {
     setIsLoading(true);
@@ -128,6 +306,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signOut,
         updateUser,
+        addNotification,
+        markAllNotificationsAsRead,
       }}
     >
       {children}

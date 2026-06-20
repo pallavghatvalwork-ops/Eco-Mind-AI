@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ScanLine, Upload, FileText, Sparkles, ShoppingCart, Leaf, AlertTriangle } from 'lucide-react';
 import { formatCO2 } from '@/lib/utils/formatters';
 import { callGemini } from '@/lib/utils/gemini';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ScannedItem {
   name: string;
@@ -24,9 +25,11 @@ interface ScanResult {
 }
 
 export default function ReceiptsPage() {
+  const { user, updateUser } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fileToBase64 = (f: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -51,6 +54,8 @@ export default function ReceiptsPage() {
   const handleScan = async () => {
     if (!file) return;
     setIsScanning(true);
+    setError(null);
+    setResult(null);
 
     try {
       const base64Data = await fileToBase64(file);
@@ -76,30 +81,17 @@ export default function ReceiptsPage() {
           totalCarbonKg: total,
           recommendations,
         });
+
+        // Increment receipt scans count in Firestore
+        updateUser({
+          receiptScansCount: (user?.receiptScansCount || 0) + 1,
+        });
       } else {
         throw new Error('Invalid format returned by Gemini Vision');
       }
     } catch (err) {
-      console.warn('Real Gemini Vision receipt analysis failed. Falling back to mock:', err);
-      setResult({
-        items: [
-          { name: 'Chicken Breast (1kg)', category: 'Meat', carbonKg: 6.9, rating: 'high' },
-          { name: 'Bottled Water (6-pack)', category: 'Plastic Packaging', carbonKg: 0.8, rating: 'high' },
-          { name: 'Rice (5kg)', category: 'Grains', carbonKg: 2.7, rating: 'medium' },
-          { name: 'Seasonal Vegetables', category: 'Produce', carbonKg: 0.4, rating: 'low' },
-          { name: 'Milk (1L)', category: 'Dairy', carbonKg: 3.2, rating: 'medium' },
-          { name: 'Lentils (1kg)', category: 'Legumes', carbonKg: 0.9, rating: 'low' },
-          { name: 'Coca-Cola (2L)', category: 'Processed Beverage', carbonKg: 0.5, rating: 'medium' },
-          { name: 'Fast Fashion T-Shirt', category: 'Clothing', carbonKg: 10.0, rating: 'high' },
-        ],
-        totalCarbonKg: 25.4,
-        recommendations: [
-          'Switch to reusable water bottles — save ~0.8 kg CO₂ per purchase',
-          'Try plant-based protein alternatives 2x/week — reduce food emissions by 30%',
-          'Choose local & seasonal produce — lower transportation emissions',
-          'Avoid fast fashion — one garment = 10 kg CO₂. Consider thrift stores.',
-        ],
-      });
+      console.warn('Real Gemini Vision receipt analysis failed:', err);
+      setError('AI analysis is temporarily unavailable. Please try again later.');
     } finally {
       setIsScanning(false);
     }
@@ -152,6 +144,21 @@ export default function ReceiptsPage() {
           </div>
         )}
       </div>
+
+      {/* Error message */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="text-2xl">⚠️</div>
+            <p className="text-sm font-semibold text-rose-400">{error}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Results */}
       <AnimatePresence>

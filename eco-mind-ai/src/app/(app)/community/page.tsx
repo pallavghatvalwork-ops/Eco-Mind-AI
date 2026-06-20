@@ -4,15 +4,70 @@
 // Community Carbon Challenge — ECO MIND AI
 // ===========================================
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Trophy, Target, Clock, TrendingUp } from 'lucide-react';
 import { MOCK_COMMUNITY_CHALLENGES } from '@/lib/mock-data';
 import { formatCO2 } from '@/lib/utils/formatters';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CommunityPage() {
+  const { user, updateUser, addNotification } = useAuth();
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const joinChallenge = (challengeId: string) => {
+    if (!user) {
+      setToastMsg('Please sign in to join community challenges.');
+      setTimeout(() => setToastMsg(null), 3000);
+      return;
+    }
+
+    const joined = user.joinedChallenges || [];
+    if (joined.includes(challengeId)) return;
+
+    const challenge = MOCK_COMMUNITY_CHALLENGES.find(c => c.id === challengeId);
+    const challengeTitle = challenge ? challenge.title : 'Community Challenge';
+
+    updateUser({
+      joinedChallenges: [...joined, challengeId],
+      communityChallengesCount: (user.communityChallengesCount || 0) + 1,
+      ecoPoints: (user.ecoPoints || 0) + 50,
+    });
+
+    addNotification(
+      '🎯 Challenge Joined',
+      `Successfully joined ${challengeTitle}.`,
+      'challenge',
+      `challenge-join-${challengeId}`
+    );
+
+    addNotification(
+      '⭐ Eco Points Earned',
+      '+50 points for joining a community challenge.',
+      'tip'
+    );
+
+    setToastMsg('Successfully joined the challenge! +50 Eco Points earned. 🌿');
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Toast Alert */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="p-4 rounded-xl bg-eco-500/10 border border-eco-500/20 text-sm text-eco-400 font-semibold flex items-center justify-between"
+          >
+            <span>{toastMsg}</span>
+            <button onClick={() => setToastMsg(null)} className="text-eco-400 hover:text-white">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
           Community <span className="text-gradient-eco">Challenges</span>
@@ -43,6 +98,8 @@ export default function CommunityPage() {
 
       {/* Community Challenges */}
       {MOCK_COMMUNITY_CHALLENGES.map((challenge, i) => {
+        const isJoined = user?.joinedChallenges?.includes(challenge.id) || false;
+        const participantCount = isJoined ? challenge.participantCount + 1 : challenge.participantCount;
         const progressPercent = Math.round((challenge.currentProgressKg / challenge.goalKg) * 100);
         const daysLeft = Math.ceil((new Date(challenge.endDate).getTime() - Date.now()) / 86400000);
 
@@ -98,7 +155,7 @@ export default function CommunityPage() {
               <div className="grid grid-cols-3 gap-4 mb-5">
                 <div className="p-3 rounded-xl bg-white/3 text-center">
                   <Users className="w-4 h-4 text-accent-400 mx-auto mb-1" />
-                  <p className="text-sm font-semibold text-white">{challenge.participantCount}</p>
+                  <p className="text-sm font-semibold text-white">{participantCount}</p>
                   <p className="text-[10px] text-surface-500">Participants</p>
                 </div>
                 <div className="p-3 rounded-xl bg-white/3 text-center">
@@ -132,8 +189,16 @@ export default function CommunityPage() {
               )}
 
               {/* Join Button */}
-              <button className="w-full mt-5 py-3 text-sm font-semibold text-white gradient-eco rounded-xl hover:shadow-lg hover:shadow-eco-500/20 transition-all">
-                Join Challenge
+              <button
+                onClick={() => joinChallenge(challenge.id)}
+                disabled={isJoined}
+                className={`w-full mt-5 py-3 text-sm font-semibold text-white rounded-xl hover:shadow-lg transition-all ${
+                  isJoined
+                    ? 'bg-white/5 border border-white/5 text-surface-400 cursor-not-allowed'
+                    : 'gradient-eco hover:shadow-eco-500/20'
+                }`}
+              >
+                {isJoined ? 'Joined ✓' : 'Join Challenge'}
               </button>
             </div>
           </motion.div>

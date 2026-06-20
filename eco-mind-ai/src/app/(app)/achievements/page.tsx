@@ -7,14 +7,83 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Lock, Star } from 'lucide-react';
-import { MOCK_BADGES } from '@/lib/mock-data';
+import { BADGES } from '@/lib/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils/formatters';
+import type { Badge } from '@/types/challenge';
 
 export default function AchievementsPage() {
   const { user } = useAuth();
-  const earned = MOCK_BADGES.filter(b => b.earned);
-  const locked = MOCK_BADGES.filter(b => !b.earned);
+
+  // Evaluate badge requirements dynamically from actual user profile stats
+  const processedBadges: Badge[] = BADGES.map((badge) => {
+    let earned = false;
+    
+    if (user) {
+      const stats = {
+        streakDays: user.streakDays || 0,
+        ecoPoints: user.ecoPoints || 0,
+        carbonScore: user.carbonScore || 0,
+        onboardingComplete: user.onboardingComplete || false,
+        journalEntriesCount: user.journalEntriesCount || 0,
+        completedChallengesCount: user.completedChallengesCount || 0,
+        billScansCount: user.billScansCount || 0,
+        receiptScansCount: user.receiptScansCount || 0,
+        simulatorScenariosCount: user.simulatorScenariosCount || 0,
+        communityChallengesCount: user.communityChallengesCount || 0,
+      };
+
+      switch (badge.id) {
+        case 'green-beginner':
+          earned = stats.onboardingComplete;
+          break;
+        case 'eco-warrior':
+          earned = stats.carbonScore >= 70;
+          break;
+        case 'climate-hero':
+          earned = stats.carbonScore >= 90;
+          break;
+        case 'planet-guardian':
+          // Climate Champion category is set when carbonScore >= 90
+          earned = stats.carbonScore >= 90 && stats.streakDays >= 30;
+          break;
+        case 'streak-7':
+          earned = stats.streakDays >= 7;
+          break;
+        case 'streak-30':
+          earned = stats.streakDays >= 30;
+          break;
+        case 'carbon-master':
+          // Requires simulator usage + high carbon score
+          earned = stats.simulatorScenariosCount >= 1 && stats.carbonScore >= 80;
+          break;
+        case 'journal-keeper':
+          earned = stats.journalEntriesCount >= 10;
+          break;
+        case 'community-champion':
+          earned = stats.communityChallengesCount >= 3;
+          break;
+        case 'bill-detective':
+          earned = stats.billScansCount >= 5;
+          break;
+        case 'receipt-scanner':
+          earned = stats.receiptScansCount >= 10;
+          break;
+        case 'simulator-pro':
+          earned = stats.simulatorScenariosCount >= 5;
+          break;
+      }
+    }
+
+    return {
+      ...badge,
+      earned,
+      earnedAt: earned && user ? (user.createdAt || new Date().toISOString()) : undefined,
+    };
+  });
+
+  const earned = processedBadges.filter(b => b.earned);
+  const locked = processedBadges.filter(b => !b.earned);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

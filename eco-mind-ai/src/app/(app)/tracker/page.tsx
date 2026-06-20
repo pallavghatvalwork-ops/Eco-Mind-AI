@@ -40,12 +40,14 @@ export default function TrackerPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detectedActivities, setDetectedActivities] = useState<DetectedActivity[]>([]);
   const [showDetected, setShowDetected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
     setIsAnalyzing(true);
 
     try {
+      setError(null);
       const data = await callGemini('tracker', { text: input });
       if (Array.isArray(data)) {
         setDetectedActivities(data);
@@ -55,6 +57,7 @@ export default function TrackerPage() {
       }
     } catch (err) {
       console.warn('Real Gemini API tracker analysis failed. Falling back to local parser:', err);
+      setError('AI features are temporarily unavailable. Using local recommendations.');
       
       // Mock detected activities based on input (Fallback)
       const mockDetected: DetectedActivity[] = [];
@@ -200,6 +203,11 @@ export default function TrackerPage() {
             exit={{ opacity: 0, y: -20 }}
           >
             <h2 className="text-base font-semibold text-white mb-4">🔍 Detected Activities</h2>
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium">
+                ⚠️ AI features are temporarily unavailable. Using local recommendations.
+              </div>
+            )}
             <div className="space-y-3">
               {detectedActivities.map((activity, i) => (
                 <motion.div

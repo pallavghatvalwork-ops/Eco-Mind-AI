@@ -19,10 +19,11 @@ interface JournalResult {
 }
 
 export default function JournalPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, addNotification } = useAuth();
   const [entry, setEntry] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<JournalResult | null>(null);
+  const [usingLocalJournal, setUsingLocalJournal] = useState(false);
   const [pastEntries] = useState([
     { date: 'Today', text: 'Cycled to work and had a vegan lunch.', savings: 5.8, streak: 12 },
     { date: 'Yesterday', text: 'Took metro, ate vegetarian, composted waste.', savings: 4.2, streak: 11 },
@@ -50,7 +51,19 @@ export default function JournalPage() {
         updateUser({
           ecoPoints: (user?.ecoPoints || 0) + rewardPoints,
           streakDays: nextStreak,
+          journalEntriesCount: (user?.journalEntriesCount || 0) + 1,
         });
+        setUsingLocalJournal(false);
+        addNotification(
+          `🔥 ${nextStreak}-Day Streak!`,
+          `You've been tracking activities for ${nextStreak} consecutive days.`,
+          'streak'
+        );
+        addNotification(
+          '⭐ Eco Points Earned',
+          `+${rewardPoints} points for submitting a journal entry.`,
+          'tip'
+        );
       } else {
         throw new Error('AI did not return correct response format');
       }
@@ -71,7 +84,19 @@ export default function JournalPage() {
       updateUser({
         ecoPoints: (user?.ecoPoints || 0) + 15,
         streakDays: nextStreak,
+        journalEntriesCount: (user?.journalEntriesCount || 0) + 1,
       });
+      setUsingLocalJournal(true);
+      addNotification(
+        `🔥 ${nextStreak}-Day Streak!`,
+        `You've been tracking activities for ${nextStreak} consecutive days.`,
+        'streak'
+      );
+      addNotification(
+        '⭐ Eco Points Earned',
+        `+15 points for submitting a journal entry.`,
+        'tip'
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -136,6 +161,12 @@ export default function JournalPage() {
               <Sparkles className="w-4 h-4 text-eco-400" />
               AI Analysis
             </h2>
+
+            {usingLocalJournal && (
+              <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium">
+                ⚠️ AI features are temporarily unavailable. Using local recommendations.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
               <div className="p-4 rounded-xl bg-eco-500/10 border border-eco-500/20 text-center">

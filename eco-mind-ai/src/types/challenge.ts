@@ -93,10 +93,9 @@ export interface Recommendation {
 
 export interface Notification {
   id: string;
-  userId: string;
   title: string;
   message: string;
-  type: 'tip' | 'reminder' | 'achievement' | 'challenge' | 'milestone';
+  type: 'streak' | 'badge' | 'challenge' | 'quiz' | 'tip';
   read: boolean;
   createdAt: string;
 }

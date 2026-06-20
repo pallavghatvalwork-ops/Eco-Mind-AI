@@ -302,16 +302,14 @@ export const MOCK_RECOMMENDATIONS: Recommendation[] = [
 export const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-001',
-    userId: 'mock-user-001',
     title: '🔥 12-Day Streak!',
     message: 'You\'ve been tracking activities for 12 days straight. Keep it up to earn the 30-Day Eco Challenge badge!',
-    type: 'milestone',
+    type: 'streak',
     read: false,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'notif-002',
-    userId: 'mock-user-001',
     title: '💡 Daily Eco Tip',
     message: 'Unplug devices when not in use. Standby power can account for 5-10% of household electricity consumption.',
     type: 'tip',
@@ -320,7 +318,6 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
   },
   {
     id: 'notif-003',
-    userId: 'mock-user-001',
     title: '🎯 Challenge Update',
     message: 'You\'re 65% through the "Walk 15km" challenge. Only 5.25km to go!',
     type: 'challenge',
