@@ -121,7 +121,8 @@ export async function callGemini(type: string, payload: any): Promise<any> {
     }
   };
 
-  if (!GEMINI_ENABLED) {
+  const geminiEnabled = process.env.NEXT_PUBLIC_ENABLE_AI === 'true';
+  if (!geminiEnabled) {
     console.info(`[Gemini Client] AI features are disabled via NEXT_PUBLIC_ENABLE_AI kill switch. Returning fallback for [${type}].`);
     return getFallback();
   }

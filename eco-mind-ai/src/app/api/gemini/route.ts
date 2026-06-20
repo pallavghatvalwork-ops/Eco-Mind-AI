@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-// Initialize the Gemini AI client
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
 // Create the route handler
 export async function POST(request: NextRequest) {
   try {
+    const geminiApiKey = process.env.GEMINI_API_KEY;
     const geminiEnabled = process.env.NEXT_PUBLIC_ENABLE_AI === 'true';
     if (!geminiEnabled) {
       return NextResponse.json({
