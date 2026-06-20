@@ -9,6 +9,8 @@ import type { User } from '@/types/user';
 import { auth, db, googleProvider } from '@/lib/firebase/client';
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { BADGES } from '@/lib/utils/constants';
+import { evaluateBadge } from '@/lib/utils/badgeEvaluator';
 
 interface AuthContextType {
   user: User | null;
@@ -195,23 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const existingNotifications = user.notifications || [];
 
     // Predefined Badge evaluation (BADGES criteria)
-    const BADGE_CHECKLIST = [
-      { id: 'green-beginner', name: 'Green Beginner', rule: stats.onboardingComplete },
-      { id: 'eco-warrior', name: 'Eco Warrior', rule: stats.carbonScore >= 70 },
-      { id: 'climate-hero', name: 'Climate Hero', rule: stats.carbonScore >= 90 },
-      { id: 'planet-guardian', name: 'Planet Guardian', rule: stats.carbonScore >= 90 && stats.streakDays >= 30 },
-      { id: 'streak-7', name: '7 Day Green Streak', rule: stats.streakDays >= 7 },
-      { id: 'streak-30', name: '30 Day Eco Challenge', rule: stats.streakDays >= 30 },
-      { id: 'carbon-master', name: 'Carbon Reduction Master', rule: stats.simulatorScenariosCount >= 1 && stats.carbonScore >= 80 },
-      { id: 'journal-keeper', name: 'Journal Keeper', rule: stats.journalEntriesCount >= 10 },
-      { id: 'community-champion', name: 'Community Champion', rule: stats.communityChallengesCount >= 3 },
-      { id: 'bill-detective', name: 'Bill Detective', rule: stats.billScansCount >= 5 },
-      { id: 'receipt-scanner', name: 'Receipt Scanner Pro', rule: stats.receiptScansCount >= 10 },
-      { id: 'simulator-pro', name: 'Simulator Pro', rule: stats.simulatorScenariosCount >= 5 },
-    ];
-
-    BADGE_CHECKLIST.forEach(badge => {
-      if (badge.rule) {
+    BADGES.forEach(badge => {
+      const isEarned = evaluateBadge(badge.id, stats);
+      if (isEarned) {
         const notifId = `badge-unlock-${badge.id}`;
         if (!existingNotifications.some(n => n.id === notifId)) {
           newNotifications.push({

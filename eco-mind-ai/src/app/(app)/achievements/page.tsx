@@ -10,6 +10,7 @@ import { Trophy, Lock, Star } from 'lucide-react';
 import { BADGES } from '@/lib/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils/formatters';
+import { evaluateBadge } from '@/lib/utils/badgeEvaluator';
 import type { Badge } from '@/types/challenge';
 
 export default function AchievementsPage() {
@@ -33,46 +34,7 @@ export default function AchievementsPage() {
         communityChallengesCount: user.communityChallengesCount || 0,
       };
 
-      switch (badge.id) {
-        case 'green-beginner':
-          earned = stats.onboardingComplete;
-          break;
-        case 'eco-warrior':
-          earned = stats.carbonScore >= 70;
-          break;
-        case 'climate-hero':
-          earned = stats.carbonScore >= 90;
-          break;
-        case 'planet-guardian':
-          // Climate Champion category is set when carbonScore >= 90
-          earned = stats.carbonScore >= 90 && stats.streakDays >= 30;
-          break;
-        case 'streak-7':
-          earned = stats.streakDays >= 7;
-          break;
-        case 'streak-30':
-          earned = stats.streakDays >= 30;
-          break;
-        case 'carbon-master':
-          // Requires simulator usage + high carbon score
-          earned = stats.simulatorScenariosCount >= 1 && stats.carbonScore >= 80;
-          break;
-        case 'journal-keeper':
-          earned = stats.journalEntriesCount >= 10;
-          break;
-        case 'community-champion':
-          earned = stats.communityChallengesCount >= 3;
-          break;
-        case 'bill-detective':
-          earned = stats.billScansCount >= 5;
-          break;
-        case 'receipt-scanner':
-          earned = stats.receiptScansCount >= 10;
-          break;
-        case 'simulator-pro':
-          earned = stats.simulatorScenariosCount >= 5;
-          break;
-      }
+      earned = evaluateBadge(badge.id, stats);
     }
 
     return {
