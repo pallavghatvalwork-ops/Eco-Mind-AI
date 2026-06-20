@@ -60,7 +60,9 @@ export default function ReceiptsPage() {
     try {
       const base64Data = await fileToBase64(file);
       const data = await callGemini('receipt', { fileData: base64Data, mimeType: file.type });
-      
+      if (data && data.isFallback) {
+        throw new Error('AI analysis is temporarily unavailable. Please try again later.');
+      }
       if (data && Array.isArray(data.items)) {
         const items = data.items.map((item: any) => ({
           name: item.name,

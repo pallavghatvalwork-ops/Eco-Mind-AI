@@ -59,6 +59,9 @@ export default function BillsPage() {
     try {
       const base64Data = await fileToBase64(file);
       const data = await callGemini('bill', { fileData: base64Data, mimeType: file.type });
+      if (data && data.isFallback) {
+        throw new Error('AI analysis is temporarily unavailable. Please try again later.');
+      }
       if (data && typeof data === 'object') {
         setResult(data);
         
