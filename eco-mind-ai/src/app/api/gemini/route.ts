@@ -263,14 +263,15 @@ export async function POST(request: NextRequest) {
           'X-Title': 'Eco Mind AI'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash',
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'user',
               content: contentParts
             }
           ],
-          response_format: { type: 'json_object' }
+          response_format: { type: 'json_object' },
+          max_tokens: 4096
         })
       });
 
