@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+/* ===========================================
+   ECO MIND AI — Design System Tokens
+   TailwindCSS v4 CSS-First Configuration
+   =========================================== */
+
+@theme {
+  /* Primary Colors — Green Eco Theme */
+  --color-eco-50: #f0fdf4;
+  --color-eco-100: #dcfce7;
+  --color-eco-200: #bbf7d0;
+  --color-eco-300: #86efac;
+  --color-eco-400: #4ade80;
+  --color-eco-500: #22c55e;
+  --color-eco-600: #16a34a;
+  --color-eco-700: #15803d;
+  --color-eco-800: #166534;
+  --color-eco-900: #14532d;
+  --color-eco-950: #052e16;
+
+  /* Accent Colors — Blue */
+  --color-accent-50: #eff6ff;
+  --color-accent-100: #dbeafe;
+  --color-accent-200: #bfdbfe;
+  --color-accent-300: #93c5fd;
+  --color-accent-400: #60a5fa;
+  --color-accent-500: #3b82f6;
+  --color-accent-600: #2563eb;
+  --color-accent-700: #1d4ed8;
+
+  /* Surface Colors — Dark Mode First */
+  --color-surface-950: #030712;
+  --color-surface-900: #0a0f1a;
+  --color-surface-800: #111827;
+  --color-surface-700: #1a2332;
+  --color-surface-600: #243044;
+  --color-surface-500: #374151;
+  --color-surface-400: #4b5563;
+  --color-surface-300: #6b7280;
+  --color-surface-200: #9ca3af;
+  --color-surface-100: #d1d5db;
+
+  /* Semantic Colors */
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #06b6d4;
+  --color-success: #22c55e;
+
+  /* Typography */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Border Radius */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-glow-green: 0 0 20px rgba(34, 197, 94, 0.3);
+  --shadow-glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+  /* Animations */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===========================================
+   Global Base Styles
+   =========================================== */
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-950);
+  color: #e5e7eb;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===========================================
+   Glassmorphism Utilities
+   =========================================== */
+
+.glass {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass);
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.glass-card:hover {
+  background: rgba(17, 24, 39, 0.65);
+  border-color: rgba(34, 197, 94, 0.15);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
+}
+
+.glass-card-static {
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-surface {
+  background: rgba(10, 15, 26, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glass-input {
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  transition: all 0.2s var(--ease-smooth);
+}
+
+.glass-input:focus {
+  border-color: var(--color-eco-500);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  outline: none;
+}
+
+/* ===========================================
+   Gradient Utilities
+   =========================================== */
+
+.gradient-eco {
+  background: linear-gradient(135deg, var(--color-eco-500), var(--color-eco-600));
+}
+
+.gradient-eco-soft {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.05));
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, var(--color-accent-500), var(--color-accent-600));
+}
+
+.gradient-hero {
+  background: linear-gradient(135deg, var(--color-surface-950) 0%, #0a1628 50%, #051a0e 100%);
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(at 20% 30%, rgba(34, 197, 94, 0.08) 0%, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(34, 197, 94, 0.04) 0%, transparent 50%),
+    var(--color-surface-950);
+}
+
+.text-gradient-eco {
+  background: linear-gradient(135deg, var(--color-eco-400), var(--color-eco-600));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-accent {
+  background: linear-gradient(135deg, var(--color-accent-400), var(--color-accent-600));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===========================================
+   Glow Effects
+   =========================================== */
+
+.glow-green {
+  box-shadow: var(--shadow-glow-green);
+}
+
+.glow-blue {
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.glow-green-intense {
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.4), 0 0 80px rgba(34, 197, 94, 0.1);
+}
+
+/* ===========================================
+   Custom Animations
+   =========================================== */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.4); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s var(--ease-smooth) forwards;
+}
+
+/* ===========================================
+   Scrollbar Styling
+   =========================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ===========================================
+   Focus & Accessibility
+   =========================================== */
+
+*:focus-visible {
+  outline: 2px solid var(--color-eco-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ===========================================
+   Selection Styling
+   =========================================== */
+
+::selection {
+  background: rgba(34, 197, 94, 0.3);
+  color: white;
+}

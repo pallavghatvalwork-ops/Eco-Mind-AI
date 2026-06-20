@@ -1,0 +1,214 @@
+'use client';
+
+// ===========================================
+// Weekly Challenges — ECO MIND AI
+// ===========================================
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Target, Sparkles, Clock, Zap, Trophy, Star, RefreshCw } from 'lucide-react';
+import { MOCK_CHALLENGES } from '@/lib/mock-data';
+import { formatCO2 } from '@/lib/utils/formatters';
+import { useAuth } from '@/contexts/AuthContext';
+import { callGemini } from '@/lib/utils/gemini';
+
+const difficultyConfig = {
+  easy: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)', label: 'Easy', icon: '🌱' },
+  medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: 'Medium', icon: '🌿' },
+  hard: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', label: 'Hard', icon: '🔥' },
+};
+
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1, y: 0,
+    transition: { delay: i * 0.1, duration: 0.5 },
+  }),
+};
+
+export default function ChallengesPage() {
+  const { user } = useAuth();
+  const [challenges, setChallenges] = useState<any[]>(MOCK_CHALLENGES);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const fetchChallenges = async () => {
+    if (!user?.preferences) return;
+    setIsGenerating(true);
+    try {
+      const data = await callGemini('challenges', {
+        preferences: user.preferences,
+        carbonScore: user.carbonScore,
+      });
+      if (Array.isArray(data)) {
+        // Map dynamic progress values for visual display
+        const mapped = data.map((ch, idx) => ({
+          id: `challenge-ai-${idx}-${Date.now()}`,
+          title: ch.title,
+          description: ch.description,
+          targetCO2Savings: Number(ch.targetCO2Savings || 3),
+          difficulty: ch.difficulty || 'medium',
+          rewardPoints: Number(ch.rewardPoints || 100),
+          progress: idx === 0 ? 30 : idx === 1 ? 15 : 0,
+          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        }));
+        setChallenges(mapped);
+      } else {
+        throw new Error('AI response is not an array');
+      }
+    } catch (err) {
+      console.warn('Failed to generate real challenges, keeping fallback defaults:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.preferences) {
+      fetchChallenges();
+    }
+  }, [user?.preferences]);
+
+  const completedChallenges = [
+    { title: 'Use reusable bags for a week', savings: 2.1, points: 40, completedAt: '3 days ago' },
+    { title: 'Take 5 cold showers', savings: 3.5, points: 60, completedAt: '1 week ago' },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header with Regenerate Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
+            Weekly <span className="text-gradient-eco">Challenges</span>
+          </h1>
+          <p className="text-surface-400 text-sm mt-1">
+            AI-generated sustainability challenges tailored to your lifestyle
+          </p>
+        </div>
+        <button
+          onClick={fetchChallenges}
+          disabled={isGenerating || !user?.preferences}
+          className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 text-sm transition-all self-start sm:self-center disabled:opacity-40"
+        >
+          {isGenerating ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 text-surface-400" />
+          )}
+          Regenerate Challenges
+        </button>
+      </div>
+
+      {/* Challenge Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'Active Challenges', value: challenges.length.toString(), icon: Target, color: '#3b82f6' },
+          { label: 'Completed', value: '12', icon: Trophy, color: '#22c55e' },
+          { label: 'Points Earned', value: `${user?.ecoPoints || 850}`, icon: Star, color: '#f59e0b' },
+        ].map((s, i) => (
+          <motion.div key={i} className="glass-card p-5 text-center" variants={fadeIn} custom={i} initial="hidden" animate="visible">
+            <s.icon className="w-6 h-6 mx-auto mb-2" style={{ color: s.color }} />
+            <p className="text-xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>{s.value}</p>
+            <p className="text-xs text-surface-400">{s.label}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Active Challenges */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-4 h-4 text-eco-400" />
+          <h2 className="text-base font-semibold text-white">Active Challenges</h2>
+          <span className="text-xs text-surface-500 ml-auto">Generated by Gemini AI</span>
+        </div>
+
+        <div className="space-y-4">
+          {challenges.map((challenge, i) => {
+            const diff = difficultyConfig[challenge.difficulty as keyof typeof difficultyConfig] || difficultyConfig.medium;
+            return (
+              <motion.div
+                key={challenge.id}
+                className="glass-card-static p-6"
+                variants={fadeIn}
+                custom={i + 3}
+                initial="hidden"
+                animate="visible"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{diff.icon}</span>
+                      <h3 className="text-base font-semibold text-white">{challenge.title}</h3>
+                    </div>
+                    <p className="text-sm text-surface-400 leading-relaxed">{challenge.description}</p>
+                  </div>
+                  <span
+                    className="px-3 py-1 text-xs font-semibold rounded-full shrink-0 ml-4 animate-pulse"
+                    style={{ backgroundColor: diff.bg, color: diff.color }}
+                  >
+                    {diff.label}
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-surface-400">Progress</span>
+                    <span className="text-eco-400 font-semibold">{challenge.progress}%</span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full gradient-eco"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${challenge.progress}%` }}
+                      transition={{ duration: 1, delay: 0.3 + i * 0.2 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Challenge Details */}
+                <div className="flex items-center gap-4 flex-wrap text-xs">
+                  <div className="flex items-center gap-1.5 text-surface-400">
+                    <Zap className="w-3.5 h-3.5 text-eco-400" />
+                    Save {formatCO2(challenge.targetCO2Savings)}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-surface-400">
+                    <Star className="w-3.5 h-3.5 text-yellow-400" />
+                    {challenge.rewardPoints} points
+                  </div>
+                  <div className="flex items-center gap-1.5 text-surface-400">
+                    <Clock className="w-3.5 h-3.5" />
+                    {Math.ceil((new Date(challenge.endDate).getTime() - Date.now()) / 86400000)} days left
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Completed Challenges */}
+      <div className="glass-card-static p-6">
+        <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-yellow-400" />
+          Recently Completed
+        </h2>
+        <div className="space-y-3">
+          {completedChallenges.map((c, i) => (
+            <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-eco-500/5 border border-eco-500/10">
+              <div className="w-8 h-8 rounded-lg bg-eco-500/20 flex items-center justify-center text-sm">✅</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-white">{c.title}</p>
+                <p className="text-xs text-surface-500">{c.completedAt}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-eco-400 font-medium">Saved {formatCO2(c.savings)}</p>
+                <p className="text-xs text-yellow-400">+{c.points} pts</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
