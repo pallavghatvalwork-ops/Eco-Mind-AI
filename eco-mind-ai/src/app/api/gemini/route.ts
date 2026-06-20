@@ -234,13 +234,61 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call the Gemini model
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [...imageParts, prompt],
-    });
+    let textResponse = '';
 
-    const textResponse = response.text || '';
+    if (geminiApiKey.startsWith('sk-or-')) {
+      console.log('[Gemini API Route] Routing request via OpenRouter client proxy...');
+      
+      let contentParts: any = prompt;
+      
+      // If we have image data for vision calls
+      if (imageParts.length > 0 && payload.fileData && payload.mimeType) {
+        contentParts = [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: payload.fileData.includes('base64,') ? payload.fileData : `data:${payload.mimeType};base64,${payload.fileData}`
+            }
+          }
+        ];
+      }
+
+      const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${geminiApiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000',
+          'X-Title': 'Eco Mind AI'
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.0-flash',
+          messages: [
+            {
+              role: 'user',
+              content: contentParts
+            }
+          ],
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!openRouterRes.ok) {
+        const errText = await openRouterRes.text();
+        throw new Error(`OpenRouter API returned status ${openRouterRes.status}: ${errText}`);
+      }
+
+      const openRouterJson = await openRouterRes.json();
+      textResponse = openRouterJson.choices?.[0]?.message?.content || '';
+    } else {
+      // Call the standard Gemini model
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [...imageParts, prompt],
+      });
+      textResponse = response.text || '';
+    }
     
     // Attempt to parse text response as JSON
     try {
