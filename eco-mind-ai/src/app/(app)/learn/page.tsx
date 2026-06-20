@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import {
   GraduationCap, BookOpen, Clock, Award, Sparkles,
   Check, X, Search, Lightbulb, Heart, ArrowRight
@@ -41,6 +42,7 @@ const ARTICLES = [
     readTime: '3 min read',
     difficulty: 'Easy',
     points: 15,
+    slug: 'vampire-power',
   },
   {
     id: 'art-2',
@@ -50,6 +52,7 @@ const ARTICLES = [
     readTime: '5 min read',
     difficulty: 'Medium',
     points: 25,
+    slug: 'carbon-food',
   },
   {
     id: 'art-3',
@@ -59,6 +62,7 @@ const ARTICLES = [
     readTime: '6 min read',
     difficulty: 'Hard',
     points: 30,
+    slug: 'ev-vs-hybrid',
   },
   {
     id: 'art-4',
@@ -68,6 +72,7 @@ const ARTICLES = [
     readTime: '4 min read',
     difficulty: 'Easy',
     points: 15,
+    slug: 'waste-separation',
   },
 ];
 
@@ -256,9 +261,10 @@ export default function LearnPage() {
           {/* Articles list */}
           <div className="space-y-4">
             {filteredArticles.map((art) => (
-              <div
+              <Link
                 key={art.id}
-                className="glass-card p-5 space-y-3 cursor-pointer group"
+                href={`/learn/articles/${art.slug}`}
+                className="glass-card p-5 space-y-3 cursor-pointer group block"
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
@@ -299,7 +305,7 @@ export default function LearnPage() {
                     Read Article <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -4,12 +4,14 @@
 // AI Daily Green Journal — ECO MIND AI
 // ===========================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Send, Sparkles, Calendar, TrendingDown, Flame } from 'lucide-react';
-import { formatCO2 } from '@/lib/utils/formatters';
+import { formatCO2, formatRelativeTime } from '@/lib/utils/formatters';
 import { callGemini } from '@/lib/utils/gemini';
 import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase/client';
+import { collection, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
 interface JournalResult {
   activities: string[];
@@ -24,18 +26,45 @@ export default function JournalPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<JournalResult | null>(null);
   const [usingLocalJournal, setUsingLocalJournal] = useState(false);
-  const [pastEntries] = useState([
-    { date: 'Today', text: 'Cycled to work and had a vegan lunch.', savings: 5.8, streak: 12 },
-    { date: 'Yesterday', text: 'Took metro, ate vegetarian, composted waste.', savings: 4.2, streak: 11 },
-    { date: '2 days ago', text: 'Walked to the market, used reusable bags.', savings: 3.1, streak: 10 },
-  ]);
+  const [pastEntries, setPastEntries] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   
+  const fetchJournals = async () => {
+    if (!user) return;
+    try {
+      setLoadingHistory(true);
+      const q = query(
+        collection(db, 'users', user.uid, 'journals'),
+        orderBy('createdAt', 'desc')
+      );
+      const snap = await getDocs(q);
+      const fetched: any[] = [];
+      snap.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setPastEntries(fetched);
+    } catch (err) {
+      console.error('Error fetching journals:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchJournals();
+    }
+  }, [user]);
+
   const handleSubmit = async () => {
     if (!entry.trim()) return;
     setIsAnalyzing(true);
 
     try {
       const data = await callGemini('journal', { text: entry });
+      if (data && data.isFallback) {
+        throw new Error('AI fallback triggered');
+      }
       if (data && typeof data === 'object') {
         const nextStreak = (user?.streakDays || 0) + 1;
         const rewardPoints = Number(data.scoreIncrease || 10);
@@ -46,6 +75,19 @@ export default function JournalPage() {
           encouragement: data.encouragement || 'Keep up the amazing green choices! 🌿',
           streakDay: nextStreak,
         });
+
+        // Save to Firestore
+        if (user) {
+          const entryDoc = {
+            userId: user.uid,
+            text: entry,
+            savings: Number(data.co2SavedKg || 0),
+            streak: nextStreak,
+            date: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          };
+          await addDoc(collection(db, 'users', user.uid, 'journals'), entryDoc);
+        }
 
         // Award eco points and advance streak in Auth context / Firestore
         updateUser({
@@ -64,12 +106,14 @@ export default function JournalPage() {
           `+${rewardPoints} points for submitting a journal entry.`,
           'tip'
         );
+        
+        await fetchJournals();
       } else {
         throw new Error('AI did not return correct response format');
       }
     } catch (err) {
       console.warn('Real Gemini API journal analysis failed. Falling back to mock:', err);
-      const nextStreak = (user?.streakDays || 12);
+      const nextStreak = (user?.streakDays || 1);
       setResult({
         activities: [
           '🚲 Bicycle commute detected — Zero emissions!',
@@ -77,10 +121,23 @@ export default function JournalPage() {
           '♻️ Composting mentioned — Great waste management',
         ],
         totalSavings: 4.2,
-        encouragement: 'Amazing day! You saved approximately 4.2 kg CO₂ compared to the average Indian lifestyle. Your consistent green choices are making a real difference. Keep this momentum going — you\'re on a 12-day streak! 🌿',
+        encouragement: `Amazing day! You saved approximately 4.2 kg CO₂ compared to the average Indian lifestyle. Your consistent green choices are making a real difference. Keep this momentum going — you're on a ${nextStreak}-day streak! 🌿`,
         streakDay: nextStreak,
       });
       
+      // Save mock entry to Firestore
+      if (user) {
+        const entryDoc = {
+          userId: user.uid,
+          text: entry,
+          savings: 4.2,
+          streak: nextStreak,
+          date: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        };
+        await addDoc(collection(db, 'users', user.uid, 'journals'), entryDoc);
+      }
+
       updateUser({
         ecoPoints: (user?.ecoPoints || 0) + 15,
         streakDays: nextStreak,
@@ -97,6 +154,8 @@ export default function JournalPage() {
         `+15 points for submitting a journal entry.`,
         'tip'
       );
+
+      await fetchJournals();
     } finally {
       setIsAnalyzing(false);
     }
@@ -211,21 +270,29 @@ export default function JournalPage() {
       <div className="glass-card-static p-6">
         <h2 className="text-base font-semibold text-white mb-4">Past Entries</h2>
         <div className="space-y-3">
-          {pastEntries.map((e, i) => (
-            <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/3 border border-white/5">
-              <div className="w-10 h-10 rounded-xl bg-eco-500/10 flex items-center justify-center shrink-0">
-                <BookOpen className="w-4 h-4 text-eco-400" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-surface-400">{e.date}</span>
-                  <span className="text-xs text-eco-400 font-medium">🔥 Day {e.streak}</span>
+          {loadingHistory ? (
+            <div className="text-center py-6 text-sm text-surface-500">Loading journal history...</div>
+          ) : pastEntries.length === 0 ? (
+            <div className="text-center py-6 text-sm text-surface-500">No journal entries yet.</div>
+          ) : (
+            pastEntries.map((e, i) => (
+              <div key={e.id || i} className="flex items-start gap-4 p-4 rounded-xl bg-white/3 border border-white/5">
+                <div className="w-10 h-10 rounded-xl bg-eco-500/10 flex items-center justify-center shrink-0">
+                  <BookOpen className="w-4 h-4 text-eco-400" />
                 </div>
-                <p className="text-sm text-surface-300">{e.text}</p>
-                <p className="text-xs text-eco-400 mt-1 font-medium">Saved {formatCO2(e.savings)}</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-surface-400">
+                      {e.createdAt ? formatRelativeTime(e.createdAt) : e.date}
+                    </span>
+                    <span className="text-xs text-eco-400 font-medium">🔥 Day {e.streak}</span>
+                  </div>
+                  <p className="text-sm text-surface-300">{e.text}</p>
+                  <p className="text-xs text-eco-400 mt-1 font-medium">Saved {formatCO2(e.savings)}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

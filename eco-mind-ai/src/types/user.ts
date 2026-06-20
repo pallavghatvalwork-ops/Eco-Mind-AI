@@ -72,6 +72,7 @@ export interface User {
   quizCompleted?: boolean;
   joinedChallenges?: string[];
   notifications?: Notification[];
+  readArticles?: string[];
 }
 
 export interface LeaderboardEntry {

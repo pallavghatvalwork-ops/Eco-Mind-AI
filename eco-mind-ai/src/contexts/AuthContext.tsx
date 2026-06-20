@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               quizCompleted: false,
               joinedChallenges: [],
               notifications: [],
+              readArticles: [],
             };
             await setDoc(userRef, newUser);
             setUser(newUser);
@@ -161,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             quizCompleted: false,
             joinedChallenges: [],
             notifications: [],
+            readArticles: [],
           });
         }
       } else {

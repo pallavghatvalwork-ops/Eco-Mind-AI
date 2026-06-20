@@ -4,13 +4,15 @@
 // Natural Language Activity Tracker — ECO MIND AI
 // ===========================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Check, X, History, Car, Utensils, Zap, ShoppingBag, Trash2 } from 'lucide-react';
-import { MOCK_ACTIVITIES } from '@/lib/mock-data';
 import { formatCO2, formatRelativeTime } from '@/lib/utils/formatters';
 import type { DetectedActivity } from '@/types/activity';
 import { callGemini } from '@/lib/utils/gemini';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase/client';
+import { collection, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   transport: <Car className="w-4 h-4" />,
@@ -36,11 +38,38 @@ const SUGGESTIONS = [
 ];
 
 export default function TrackerPage() {
+  const { user } = useAuth();
   const [input, setInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detectedActivities, setDetectedActivities] = useState<DetectedActivity[]>([]);
   const [showDetected, setShowDetected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchActivities = async () => {
+      try {
+        setLoadingHistory(true);
+        const q = query(
+          collection(db, 'users', user.uid, 'activities'),
+          orderBy('createdAt', 'desc')
+        );
+        const snap = await getDocs(q);
+        const fetched: any[] = [];
+        snap.forEach((doc) => {
+          fetched.push({ id: doc.id, ...doc.data() });
+        });
+        setActivities(fetched);
+      } catch (err) {
+        console.error('Error fetching activities:', err);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    fetchActivities();
+  }, [user]);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
@@ -49,6 +78,9 @@ export default function TrackerPage() {
     try {
       setError(null);
       const data = await callGemini('tracker', { text: input });
+      if (data && data.isFallback) {
+        throw new Error('AI fallback triggered');
+      }
       if (Array.isArray(data)) {
         setDetectedActivities(data);
         setShowDetected(true);
@@ -131,10 +163,41 @@ export default function TrackerPage() {
     }
   };
 
-  const handleSave = () => {
-    setShowDetected(false);
-    setDetectedActivities([]);
-    setInput('');
+  const handleSave = async () => {
+    if (!user || detectedActivities.length === 0) return;
+    try {
+      for (const act of detectedActivities) {
+        const activityDoc = {
+          userId: user.uid,
+          rawInput: input,
+          category: act.category,
+          parsedData: act.parsedData,
+          carbonKg: act.estimatedCarbonKg,
+          source: 'nlp',
+          createdAt: new Date().toISOString(),
+          date: new Date().toISOString(),
+        };
+        await addDoc(collection(db, 'users', user.uid, 'activities'), activityDoc);
+      }
+      
+      // Refresh history
+      const q = query(
+        collection(db, 'users', user.uid, 'activities'),
+        orderBy('createdAt', 'desc')
+      );
+      const snap = await getDocs(q);
+      const fetched: any[] = [];
+      snap.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setActivities(fetched);
+    } catch (err) {
+      console.error('Error saving activities:', err);
+    } finally {
+      setShowDetected(false);
+      setDetectedActivities([]);
+      setInput('');
+    }
   };
 
   return (
@@ -282,28 +345,34 @@ export default function TrackerPage() {
         </div>
 
         <div className="space-y-3">
-          {MOCK_ACTIVITIES.map((activity) => (
-            <div key={activity.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/3 transition-colors">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  background: `${CATEGORY_COLORS[activity.category]}15`,
-                  color: CATEGORY_COLORS[activity.category],
-                }}
-              >
-                {CATEGORY_ICONS[activity.category]}
+          {loadingHistory ? (
+            <div className="text-center py-6 text-sm text-surface-500">Loading activity history...</div>
+          ) : activities.length === 0 ? (
+            <div className="text-center py-6 text-sm text-surface-500">No activities recorded yet.</div>
+          ) : (
+            activities.map((activity) => (
+              <div key={activity.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/3 transition-colors">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: `${CATEGORY_COLORS[activity.category]}15`,
+                    color: CATEGORY_COLORS[activity.category],
+                  }}
+                >
+                  {CATEGORY_ICONS[activity.category]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{activity.rawInput}</p>
+                  <p className="text-xs text-surface-500 mt-0.5">
+                    {formatRelativeTime(activity.createdAt)} • via {activity.source || 'nlp'}
+                  </p>
+                </div>
+                <span className="text-sm font-medium text-surface-300 shrink-0">
+                  {formatCO2(activity.carbonKg)}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">{activity.rawInput}</p>
-                <p className="text-xs text-surface-500 mt-0.5">
-                  {formatRelativeTime(activity.createdAt)} • via {activity.source}
-                </p>
-              </div>
-              <span className="text-sm font-medium text-surface-300 shrink-0">
-                {formatCO2(activity.carbonKg)}
-              </span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
