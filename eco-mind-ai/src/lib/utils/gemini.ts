@@ -98,10 +98,34 @@ const FALLBACKS: Record<string, any> = {
   }
 };
 
+const GEMINI_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AI === 'true';
+
 /**
  * Call the server-side Gemini API proxy route.
  */
 export async function callGemini(type: string, payload: any): Promise<any> {
+  const getFallback = () => {
+    try {
+      const fallback = structuredClone(FALLBACKS[type] || {});
+      if (fallback && typeof fallback === 'object') {
+        fallback.isFallback = true;
+      }
+      return fallback;
+    } catch {
+      // JSON clone fallback in case structuredClone encounters platform errors
+      const fallback = JSON.parse(JSON.stringify(FALLBACKS[type] || {}));
+      if (fallback && typeof fallback === 'object') {
+        fallback.isFallback = true;
+      }
+      return fallback;
+    }
+  };
+
+  if (!GEMINI_ENABLED) {
+    console.info(`[Gemini Client] AI features are disabled via NEXT_PUBLIC_ENABLE_AI kill switch. Returning fallback for [${type}].`);
+    return getFallback();
+  }
+
   try {
     const res = await fetch('/api/gemini', {
       method: 'POST',
@@ -122,6 +146,11 @@ export async function callGemini(type: string, payload: any): Promise<any> {
       throw new Error(json.error);
     }
 
+    if (json.fallback) {
+      console.warn(`[Gemini Client] Server-side fallback triggered for type [${type}]. Reason: ${json.reason}`);
+      return getFallback();
+    }
+
     const data = json.data;
     if (data && typeof data === 'object') {
       data.isFallback = false;
@@ -129,11 +158,7 @@ export async function callGemini(type: string, payload: any): Promise<any> {
     return data;
   } catch (e: any) {
     console.error(`Gemini integration error on type [${type}], using fallback:`, e);
-    const fallback = FALLBACKS[type] || {};
-    if (fallback && typeof fallback === 'object') {
-      fallback.isFallback = true;
-    }
-    return fallback;
+    return getFallback();
   }
 }
 

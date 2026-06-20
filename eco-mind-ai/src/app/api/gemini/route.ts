@@ -7,11 +7,23 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 // Create the route handler
 export async function POST(request: NextRequest) {
   try {
+    const geminiEnabled = process.env.NEXT_PUBLIC_ENABLE_AI === 'true';
+    if (!geminiEnabled) {
+      return NextResponse.json({
+        success: true,
+        fallback: true,
+        reason: "disabled_kill_switch",
+        data: null
+      });
+    }
+
     if (!geminiApiKey) {
-      return NextResponse.json(
-        { error: 'GEMINI_API_KEY environment variable is not configured on the server.' },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        success: true,
+        fallback: true,
+        reason: "missing_api_key",
+        data: null
+      });
     }
 
     const ai = new GoogleGenAI({ apiKey: geminiApiKey });
@@ -250,9 +262,22 @@ export async function POST(request: NextRequest) {
 
   } catch (e: any) {
     console.error('Gemini API Route error:', e);
-    return NextResponse.json(
-      { error: e.message || 'Internal Server Error' },
-      { status: 500 }
-    );
+    const status = e?.status || e?.response?.status || 500;
+    
+    if (status === 429) {
+      return NextResponse.json({
+        success: true,
+        fallback: true,
+        reason: "quota_exceeded",
+        data: null
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      fallback: true,
+      reason: "api_failure",
+      data: null
+    });
   }
 }
